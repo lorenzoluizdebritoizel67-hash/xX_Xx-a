@@ -155,7 +155,7 @@ local tituloForaAtivo = true
 local mm2AssassinoAtivo = false
 local mm2XerifeAtivo = false
 local mm2InocenteAtivo = false
-local autoTpArmaAtivo = false
+local tpAutogunAtivo = false
 local aimbotApenasAssassinoAtivo = false
 local mm2Boxes = {}
 local mm2Tags = {}
@@ -171,19 +171,41 @@ local tamanhosOriginaisHrps = {}
 local c00lkiddAtivo = false
 local jogadorSelecionado = nil
 local alvoUltSelecionado = nil
-local jaAutoPegouArma = false
-local posicaoMorteXerife = nil
-local xerifeAnterior = nil
 
--- Função para localizar a Arma do Xerife no chão
-local function encontrarArmaNoChao()
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj.Name == "GunDrop" or obj.Name == "SheriffGun" then
-            return obj
+-- FUNÇÃO AVANÇADA PARA PEGAR A ARMA CAÍDA DO XERIFE
+local pegandoArma = false
+
+local function executarTpArma(gunDropObj)
+    if pegandoArma or not tpAutogunAtivo then return end
+    
+    local meuChar = p.Character
+    local humanoid = meuChar and meuChar:FindFirstChildOfClass("Humanoid")
+    local hrp = meuChar and meuChar:FindFirstChild("HumanoidRootPart")
+    
+    if meuChar and humanoid and humanoid.Health > 0 and hrp then
+        pegandoArma = true
+        
+        local posOriginal = hrp.CFrame
+        local posArma = gunDropObj:IsA("BasePart") and gunDropObj.CFrame or gunDropObj:GetPivot()
+        
+        -- Teleporta até a arma
+        hrp.CFrame = posArma + Vector3.new(0, 1.5, 0)
+        
+        task.wait(0.25)
+        
+        -- Retorna para a posição original se ainda estiver vivo
+        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            p.Character.HumanoidRootPart.CFrame = posOriginal
         end
+        
+        task.wait(1)
+        pegandoArma = false
     end
+end
+
+local function buscarArmaExistente()
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if (obj:IsA("Tool") or obj:IsA("Model")) and (obj.Name == "GunDrop" or obj.Name == "Gun" or obj.Name == "SheriffGun") then
+        if obj.Name == "GunDrop" or obj.Name == "SheriffGun" then
             if not obj:IsDescendantOf(Pessoas) then
                 return obj
             end
@@ -192,18 +214,15 @@ local function encontrarArmaNoChao()
     return nil
 end
 
-local function encontrarPosicaoArmaOuMorte()
-    local arma = encontrarArmaNoChao()
-    if arma then
-        if arma:IsA("BasePart") then return arma.CFrame end
-        if arma:IsA("Model") and arma.PrimaryPart then return arma.PrimaryPart.CFrame end
-        if arma:IsA("Model") and arma:FindFirstChildWhichIsA("BasePart") then return arma:FindFirstChildWhichIsA("BasePart").CFrame end
+-- DETECTOR AUTOMÁTICO EM TEMPO REAL
+Workspace.DescendantAdded:Connect(function(descendant)
+    if tpAutogunAtivo and (descendant.Name == "GunDrop" or descendant.Name == "SheriffGun") then
+        if not descendant:IsDescendantOf(Pessoas) then
+            task.wait(0.05)
+            executarTpArma(descendant)
+        end
     end
-    if posicaoMorteXerife then
-        return posicaoMorteXerife
-    end
-    return nil
-end
+end)
 
 -- FOV AIMBOT
 local fovCircle = Drawing.new("Circle")
@@ -651,7 +670,7 @@ task.spawn(atualizarListaPessoas)
 local mm2AssassinoBtn = criarBtn(abaMm2, "Ver Assassinos: OFF", UDim2.new(0, 0, 0, 0))
 local mm2XerifeBtn = criarBtn(abaMm2, "Ver Xerifes/Heróis: OFF", UDim2.new(0, 0, 0, 35))
 local mm2InocenteBtn = criarBtn(abaMm2, "Ver Inocentes: OFF", UDim2.new(0, 0, 0, 70))
-local autoTpArmaBtn = criarBtn(abaMm2, "TP até a Arma: OFF", UDim2.new(0, 0, 0, 105))
+local tpAutogunBtn = criarBtn(abaMm2, "TP Autogun: OFF", UDim2.new(0, 0, 0, 105))
 local killAllFacaBtn = criarBtn(abaMm2, "Puxar Hitbox p/ Mim (Murder Kill All)", UDim2.new(0, 0, 0, 140))
 local aimbotAssassinoBtn = criarBtn(abaMm2, "Aimbot Apenas no Assassino: OFF", UDim2.new(0, 0, 0, 175))
 
@@ -675,12 +694,15 @@ mm2InocenteBtn.MouseButton1Click:Connect(function()
     mm2InocenteBtn.BackgroundColor3 = mm2InocenteAtivo and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(0, 0, 0)
 end)
 
--- BOTÃO COM TOGGLE (ON / OFF) PARA TP ATÉ A ARMA COM RETORNO AUTOMÁTICO
-autoTpArmaBtn.MouseButton1Click:Connect(function()
-    autoTpArmaAtivo = not autoTpArmaAtivo
-    autoTpArmaBtn.Text = autoTpArmaAtivo and "TP até a Arma: ON" or "TP até a Arma: OFF"
-    autoTpArmaBtn.BackgroundColor3 = autoTpArmaAtivo and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(0, 0, 0)
-    jaAutoPegouArma = false
+tpAutogunBtn.MouseButton1Click:Connect(function()
+    tpAutogunAtivo = not tpAutogunAtivo
+    tpAutogunBtn.Text = tpAutogunAtivo and "TP Autogun: ON" or "TP Autogun: OFF"
+    tpAutogunBtn.BackgroundColor3 = tpAutogunAtivo and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(0, 0, 0)
+    
+    if tpAutogunAtivo then
+        local arma = buscarArmaExistente()
+        if arma then executarTpArma(arma) end
+    end
 end)
 
 aimbotAssassinoBtn.MouseButton1Click:Connect(function()
@@ -744,47 +766,8 @@ local function detectarPapelMM2(plr)
     return "Innocent"
 end
 
--- ==================== LÓGICA AUTOMÁTICA DO TP ARMA (COM ON / OFF) ====================
+-- ==================== CHAMS MM2 ====================
 RunService.RenderStepped:Connect(function()
-    -- Monitora a morte do xerife
-    local xerifeAtual = nil
-    for _, plr in pairs(Pessoas:GetPlayers()) do
-        if detectarPapelMM2(plr) == "Sheriff" then
-            xerifeAtual = plr
-            break
-        end
-    end
-
-    if xerifeAtual and xerifeAtual.Character and xerifeAtual.Character:FindFirstChild("HumanoidRootPart") then
-        xerifeAnterior = xerifeAtual
-        posicaoMorteXerife = xerifeAtual.Character.HumanoidRootPart.CFrame
-    elseif xerifeAnterior and (not xerifeAtual or not xerifeAnterior.Character or not xerifeAnterior.Character:FindFirstChild("HumanoidRootPart")) then
-        xerifeAnterior = nil
-    end
-
-    -- TELEPORT AUTOMÁTICO SE O BOTAO ESTIVER ON
-    if autoTpArmaAtivo then
-        local posArma = encontrarPosicaoArmaOuMorte()
-        if posArma and not jaAutoPegouArma then
-            local meuChar = p.Character
-            local hrp = meuChar and meuChar:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                jaAutoPegouArma = true
-                local posOriginal = hrp.CFrame
-                
-                hrp.CFrame = posArma + Vector3.new(0, 2, 0)
-                task.wait(0.3)
-                
-                if meuChar and meuChar:FindFirstChild("HumanoidRootPart") then
-                    meuChar.HumanoidRootPart.CFrame = posOriginal
-                end
-            end
-        elseif not posArma then
-            jaAutoPegouArma = false
-        end
-    end
-
-    -- CHAMS COLORIDO CORPO INTEIRO MM2
     for _, plr in pairs(Pessoas:GetPlayers()) do
         if plr ~= p and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local papel = detectarPapelMM2(plr)
@@ -1460,6 +1443,7 @@ local function atualizarESP()
                 if espTags[plr] then espTags[plr]:Destroy() espTags[plr] = nil end
             end
 
+            -- DESENHO DE LINHA ESP VERMELHA
             if espLineAtivo and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                 local line = espTracerLines[plr]
                 if not line then
