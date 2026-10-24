@@ -104,6 +104,7 @@ local Pessoas = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 local Camera = Workspace.CurrentCamera
 local Mouse = p:GetMouse()
 
@@ -156,6 +157,7 @@ local mm2AssassinoAtivo = false
 local mm2XerifeAtivo = false
 local mm2InocenteAtivo = false
 local tpAutogunAtivo = false
+local autoFarmCoinsAtivo = false
 local aimbotApenasAssassinoAtivo = false
 local mm2Boxes = {}
 local mm2Tags = {}
@@ -188,12 +190,9 @@ local function executarTpArma(gunDropObj)
         local posOriginal = hrp.CFrame
         local posArma = gunDropObj:IsA("BasePart") and gunDropObj.CFrame or gunDropObj:GetPivot()
         
-        -- Teleporta até a arma
         hrp.CFrame = posArma + Vector3.new(0, 1.5, 0)
-        
         task.wait(0.25)
         
-        -- Retorna para a posição original se ainda estiver vivo
         if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
             p.Character.HumanoidRootPart.CFrame = posOriginal
         end
@@ -214,7 +213,6 @@ local function buscarArmaExistente()
     return nil
 end
 
--- DETECTOR AUTOMÁTICO EM TEMPO REAL
 Workspace.DescendantAdded:Connect(function(descendant)
     if tpAutogunAtivo and (descendant.Name == "GunDrop" or descendant.Name == "SheriffGun") then
         if not descendant:IsDescendantOf(Pessoas) then
@@ -296,7 +294,7 @@ local abaScripts = criarAreaConteudo()
 abaScripts.CanvasSize = UDim2.new(0, 0, 0, 400)
 
 local abaMm2 = criarAreaConteudo()
-abaMm2.CanvasSize = UDim2.new(0, 0, 0, 420)
+abaMm2.CanvasSize = UDim2.new(0, 0, 0, 460)
 
 local abaConfig = criarAreaConteudo()
 abaConfig.CanvasSize = UDim2.new(0, 0, 0, 560)
@@ -636,7 +634,7 @@ local function atualizarListaPessoas()
         if v:IsA("TextButton") then v:Destroy() end
     end
     
-    local y = 0
+    let y = 0
     for _, plr in pairs(Pessoas:GetPlayers()) do
         if plr ~= p then
             local btn = Instance.new("TextButton", containerLista)
@@ -671,10 +669,12 @@ local mm2AssassinoBtn = criarBtn(abaMm2, "Ver Assassinos: OFF", UDim2.new(0, 0, 
 local mm2XerifeBtn = criarBtn(abaMm2, "Ver Xerifes/Heróis: OFF", UDim2.new(0, 0, 0, 35))
 local mm2InocenteBtn = criarBtn(abaMm2, "Ver Inocentes: OFF", UDim2.new(0, 0, 0, 70))
 local tpAutogunBtn = criarBtn(abaMm2, "TP Autogun: OFF", UDim2.new(0, 0, 0, 105))
-local killAllFacaBtn = criarBtn(abaMm2, "Puxar Hitbox p/ Mim (Murder Kill All)", UDim2.new(0, 0, 0, 140))
-local aimbotAssassinoBtn = criarBtn(abaMm2, "Aimbot Apenas no Assassino: OFF", UDim2.new(0, 0, 0, 175))
+local autoFarmCoinsBtn = criarBtn(abaMm2, "Auto Farm Coins: OFF", UDim2.new(0, 0, 0, 140))
+local killAllFacaBtn = criarBtn(abaMm2, "Puxar Hitbox p/ Mim (Murder Kill All)", UDim2.new(0, 0, 0, 175))
+local aimbotAssassinoBtn = criarBtn(abaMm2, "Aimbot Apenas no Assassino: OFF", UDim2.new(0, 0, 0, 210))
 
 killAllFacaBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+autoFarmCoinsBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 
 mm2AssassinoBtn.MouseButton1Click:Connect(function()
     mm2AssassinoAtivo = not mm2AssassinoAtivo
@@ -702,6 +702,84 @@ tpAutogunBtn.MouseButton1Click:Connect(function()
     if tpAutogunAtivo then
         local arma = buscarArmaExistente()
         if arma then executarTpArma(arma) end
+    end
+end)
+
+-- AUTO FARM COINS / DOCES COM NOCLIP E RESET QUANDO CHEIO
+autoFarmCoinsBtn.MouseButton1Click:Connect(function()
+    autoFarmCoinsAtivo = not autoFarmCoinsAtivo
+    autoFarmCoinsBtn.Text = autoFarmCoinsAtivo and "Auto Farm Coins: ON" or "Auto Farm Coins: OFF"
+    autoFarmCoinsBtn.BackgroundColor3 = autoFarmCoinsAtivo and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(0, 0, 0)
+    
+    -- Liga/Desliga o Noclip junto
+    noclipAtivo = autoFarmCoinsAtivo
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if autoFarmCoinsAtivo then
+            pcall(function()
+                -- Verifica se o saco de moedas/doces está cheio na tela do MM2
+                local playerGuiCheck = p:FindFirstChild("PlayerGui")
+                if playerGuiCheck then
+                    local mainGui = playerGuiCheck:FindFirstChild("MainGUI")
+                    if mainGui then
+                        local gamepasses = mainGui:FindFirstChild("GamePasses") -- ou checagem de texto de inventário cheio
+                        local shopContainer = mainGui:FindFirstChild("CoinBag") or mainGui:FindFirstChild("Coins")
+                        -- Se detectar aviso de inventário cheio ou contagem máxima de moedas/doces
+                        for _, desc in pairs(mainGui:GetDescendants()) do
+                            if desc:IsA("TextLabel") and (desc.Text:lower():find("full") or desc.Text:lower():find("cheio") or desc.Text:lower():find("max")) then
+                                local char = p.Character
+                                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                                if hum then
+                                    hum.Health = 0 -- Reseta o personagem quando o saco tá cheio
+                                    task.wait(3)
+                                end
+                            end
+                        end
+                    end
+                end
+
+                local meuChar = p.Character
+                local hrp = meuChar and meuChar:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local moedas = {}
+                local coinContainer = Workspace:FindFirstChild("CoinContainer", true) or Workspace:FindFirstChild("Normal", true)
+                local busca = coinContainer and coinContainer:GetChildren() or Workspace:GetDescendants()
+
+                for _, obj in pairs(busca) do
+                    if obj:IsA("BasePart") and (obj.Name == "Coin_Server" or obj.Name == "Candy_Server" or obj.Name == "Coin" or obj.Name == "Candy") then
+                        if obj.Transparency < 1 then
+                            table.insert(moedas, obj)
+                        end
+                    end
+                end
+
+                if #moedas > 0 then
+                    local moedaMaisProxima = nil
+                    local menorDistancia = math.huge
+
+                    for _, m in pairs(moedas) do
+                        local dist = (hrp.Position - m.Position).Magnitude
+                        if dist < menorDistancia then
+                            menorDistancia = dist
+                            moedaMaisProxima = m
+                        end
+                    end
+
+                    if moedaMaisProxima and autoFarmCoinsAtivo then
+                        local duracao = math.clamp(menorDistancia / 40, 0.1, 1.2)
+                        local tweenInfo = TweenInfo.new(duracao, Enum.EasingStyle.Linear)
+                        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = moedaMaisProxima.CFrame})
+                        
+                        tween:Play()
+                        tween.Completed:Wait()
+                    end
+                end
+            end)
+        end
     end
 end)
 
